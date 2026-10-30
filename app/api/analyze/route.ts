@@ -5,6 +5,9 @@ import { isValidSolanaAddress } from "@/lib/solana/address";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 500;
+const analysisCache = new Map<string, { expiresAt: number; value: Record<string, unknown> }>();
 
 export async function POST(request: Request) {
   let body: unknown;
@@ -22,19 +25,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That doesn’t look like a valid Solana public address." }, { status: 400 });
   }
 
+  const cached = analysisCache.get(address);
+  if (cached && cached.expiresAt > Date.now()) {
+    analysisCache.delete(address);
+    analysisCache.set(address, cached);
+    return NextResponse.json(cached.value, { headers: { "x-analysis-cache": "hit" } });
+  }
+  if (cached) analysisCache.delete(address);
+
   try {
     const history = await fetchAllTransactions(address);
     if (history.length === 0) {
-      return NextResponse.json({ address, status: "empty", message: "No transaction history found for this wallet." });
+      return cacheAndRespond(address, { address, status: "empty", transactionCount: 0, tokens: [], message: "No transaction history found for this wallet." });
     }
 
     const swaps = history.filter((transaction) => transaction.type?.toUpperCase() === "SWAP");
     if (swaps.length === 0) {
-      return NextResponse.json({ address, status: "no-swaps", transactionCount: history.length, tokens: [] });
+      return cacheAndRespond(address, { address, status: "no-swaps", transactionCount: history.length, tokens: [], swapCount: 0 });
     }
 
     const tokens = calculateTokenPerformance(address, history);
-    return NextResponse.json({
+    return cacheAndRespond(address, {
       address,
       status: tokens.length > 0 ? "ok" : "no-swaps",
       transactionCount: history.length,
@@ -53,4 +64,14 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: "Couldn’t analyze that wallet right now. Try again shortly." }, { status: 502 });
   }
+}
+
+function cacheAndRespond(address: string, value: Record<string, unknown>) {
+  analysisCache.set(address, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+  while (analysisCache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = analysisCache.keys().next().value;
+    if (!oldestKey) break;
+    analysisCache.delete(oldestKey);
+  }
+  return NextResponse.json(value, { headers: { "x-analysis-cache": "miss" } });
 }
