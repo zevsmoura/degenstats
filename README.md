@@ -23,7 +23,7 @@ Keep `.env.local` private. It is excluded from Git.
 
 P&L is based on swap legs reported by Helius. SOL and wrapped SOL are quote currency. USD values are calculated only where both the acquisition and sale have an observed USDC or USDT leg; no historical SOL/USD price is guessed. Transfers enter inventory with unknown cost basis and do not count as trades. Network and protocol fees are not allocated to token lots. These limitations are included in the API response so downstream screens can disclose incomplete values.
 
-Successful wallet analyses are cached in each running server instance for 10 minutes (up to 500 wallet entries per instance). The dashboard includes a cumulative realized SOL chart, close-based statistics, three generated insights, a per-token ledger, and a branded share card generated with Next.js `ImageResponse` (`@vercel/og`).
+Successful wallet analyses are cached by public address in Next.js's Data Cache for 10 minutes. The dashboard includes a cumulative realized SOL chart, close-based statistics, three generated insights, a per-token ledger, and a branded share card generated with Next.js `ImageResponse` (powered by `@vercel/og`).
 
 ## Deployment
 
