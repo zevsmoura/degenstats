@@ -17,6 +17,12 @@ Degenstats is a read-only Solana wallet trading analytics app built with Next.js
 
 Keep `.env.local` private. It is excluded from Git.
 
+## Wallet analysis API
+
+`POST /api/analyze` accepts `{ "address": "<public Solana address>" }`. It validates the base58 public key before calling Helius, fetches transaction history page by page, and returns per-token FIFO realized P&L. It returns a clear error for invalid addresses, missing Helius configuration, rate limits, and wallets with no history or swaps.
+
+P&L is based on swap legs reported by Helius. SOL and wrapped SOL are quote currency. USD values are calculated only where both the acquisition and sale have an observed USDC or USDT leg; no historical SOL/USD price is guessed. Transfers enter inventory with unknown cost basis and do not count as trades. Network and protocol fees are not allocated to token lots. These limitations are included in the API response so downstream screens can disclose incomplete values.
+
 ## Deployment
 
 Deploy the repository to Vercel and configure `HELIUS_API_KEY` in the project environment variables.
